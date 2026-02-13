@@ -1,0 +1,22 @@
+[
+    {
+        "query": "Recent advances in transformer architectures for natural language processing",
+        "description": "Exploring latest transformer models and their NLP applications"
+    },
+    {
+        "query": "Reinforcement learning from human feedback in large language models",
+        "description": "RLHF techniques used in modern LLM alignment"
+    },
+    {
+        "query": "Graph neural networks for molecular property prediction",
+        "description": "GNN applications in computational chemistry and drug discovery"
+    },
+    {
+        "query": "Multimodal AI systems combining vision and language understanding",
+        "description": "Vision-language models like GPT-4V, Gemini, LLaVA"
+    },
+    {
+        "query": "Efficient inference techniques for large language models",
+        "description": "Quantization, pruning, and distillation for LLM deployment"
+    }
+]

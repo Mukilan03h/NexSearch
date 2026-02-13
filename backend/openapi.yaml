@@ -1,0 +1,482 @@
+openapi: 3.0.3
+info:
+  title: AI Research Assistant API
+  description: |
+    FastAPI-based backend for automated research report generation.
+    Multi-agent pipeline: Planner → Fetcher → Analyzer → Writer.
+  version: 1.0.0
+  contact:
+    name: API Support
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: /api
+    description: Production (via Nginx proxy)
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Returns service status and configuration
+      operationId: health_check
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /research:
+    post:
+      summary: Execute Research (Standard)
+      description: Execute a research query and return the complete report
+      operationId: execute_research
+      tags:
+        - Research
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchRequest'
+      responses:
+        '200':
+          description: Research completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResearchResponse'
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /research/stream:
+    post:
+      summary: Execute Research (Streaming)
+      description: |
+        Execute research with Server-Sent Events (SSE) for real-time progress updates.
+        Returns a stream of JSON events with status updates.
+      operationId: execute_research_stream
+      tags:
+        - Research
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResearchRequest'
+      responses:
+        '200':
+          description: SSE stream of progress events
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/ResearchStreamEvent'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+
+  /reports:
+    get:
+      summary: List Reports
+      description: Returns list of all past research reports from PostgreSQL
+      operationId: list_reports
+      tags:
+        - Reports
+      responses:
+        '200':
+          description: List of reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReportSummary'
+        '500':
+          description: Failed to retrieve reports
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reports/{report_id}:
+    get:
+      summary: Get Report
+      description: Returns full details of a specific report including markdown content
+      operationId: get_report
+      tags:
+        - Reports
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          description: Report ID (UUID or 8-character short ID)
+          schema:
+            type: string
+            example: "abc123de"
+      responses:
+        '200':
+          description: Report details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportDetail'
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to retrieve report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete Report
+      description: Deletes a report from the database
+      operationId: delete_report
+      tags:
+        - Reports
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          description: Report ID to delete
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Report deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Report deleted successfully"
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Failed to delete report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reports/{report_id}/export/{format}:
+    get:
+      summary: Export Report
+      description: Export report in specified format (md, pdf, docx)
+      operationId: export_report
+      tags:
+        - Reports
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          description: Report ID to export
+          schema:
+            type: string
+        - name: format
+          in: path
+          required: true
+          description: Export format
+          schema:
+            type: string
+            enum: [md, pdf, docx]
+      responses:
+        '200':
+          description: File download
+          content:
+            text/markdown:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              description: Attachment with filename
+              schema:
+                type: string
+                example: 'attachment; filename="research-report-abc123.pdf"'
+        '400':
+          description: Invalid format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "healthy"
+        service:
+          type: string
+          example: "research-assistant"
+        version:
+          type: string
+          example: "1.0.0"
+        llm_provider:
+          type: string
+          example: "openai"
+        model:
+          type: string
+          example: "gpt-4o-mini"
+
+    ResearchRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Research query text
+          example: "Recent advances in transformer architectures"
+        max_papers:
+          type: integer
+          description: Maximum papers to analyze
+          minimum: 1
+          maximum: 50
+          default: 10
+          example: 10
+
+    ResearchResponse:
+      type: object
+      properties:
+        report_id:
+          type: string
+          example: "abc123"
+        query:
+          type: string
+          example: "Recent advances in transformer architectures"
+        papers_analyzed:
+          type: integer
+          example: 10
+        themes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Theme'
+        citations:
+          type: array
+          items:
+            type: string
+          example:
+            - "[1] Vaswani et al (2017). \"Attention Is All You Need\". arXiv. https://arxiv.org/abs/1706.03762"
+        markdown_report:
+          type: string
+          example: "# Research Report: Recent advances in transformer architectures\n\n## Executive Summary..."
+        top_papers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Paper'
+        minio_url:
+          type: string
+          nullable: true
+          example: "s3://reports/abc123.md"
+
+    ResearchStreamEvent:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [starting, planning, planned, fetching, fetched, analyzing, analyzed, writing, complete, error]
+          description: Current pipeline stage
+        message:
+          type: string
+          description: Human-readable status message
+        papers_count:
+          type: integer
+          description: Number of papers fetched (when status=fetched)
+        report_id:
+          type: string
+          description: Generated report ID (when status=complete)
+        report:
+          $ref: '#/components/schemas/ResearchResponse'
+          description: Complete report data (when status=complete)
+
+    Theme:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Attention Mechanisms"
+        description:
+          type: string
+          example: "Novel attention variants in transformers"
+        relevance_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.95
+        paper_ids:
+          type: array
+          items:
+            type: string
+          example: ["arxiv:1234", "arxiv:5678"]
+
+    Paper:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "arxiv:1234"
+        title:
+          type: string
+          example: "Attention Is All You Need"
+        authors:
+          type: array
+          items:
+            type: string
+          example: ["Vaswani", "Shazeer", "Parmar"]
+        abstract:
+          type: string
+          example: "We propose a new simple network architecture..."
+        published_date:
+          type: string
+          format: date-time
+          example: "2017-06-12T00:00:00"
+        url:
+          type: string
+          format: uri
+          example: "https://arxiv.org/abs/1706.03762"
+        pdf_url:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://arxiv.org/pdf/1706.03762.pdf"
+        citations:
+          type: integer
+          example: 50000
+        source:
+          type: string
+          enum: [arxiv, semantic_scholar, pubmed, openalex]
+          example: "arxiv"
+        relevance_score:
+          type: number
+          format: float
+          nullable: true
+          example: 0.98
+
+    ReportSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "abc123de"
+        query_text:
+          type: string
+          example: "Recent advances in transformer architectures"
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00"
+        papers_count:
+          type: integer
+          example: 10
+        themes_count:
+          type: integer
+          example: 4
+        citations_count:
+          type: integer
+          example: 15
+
+    ReportDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "abc123de"
+        query_text:
+          type: string
+          example: "Recent advances in transformer architectures"
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00"
+        markdown_content:
+          type: string
+          example: "# Research Report..."
+        minio_path:
+          type: string
+          nullable: true
+          example: "s3://reports/abc123de.md"
+        papers_count:
+          type: integer
+          example: 10
+        themes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Theme'
+        citations:
+          type: array
+          items:
+            type: string
+        top_papers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Paper'
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+          example: "Report not found"
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+tags:
+  - name: Health
+    description: Health check and service status
+  - name: Research
+    description: Research execution endpoints
+  - name: Reports
+    description: Report management endpoints

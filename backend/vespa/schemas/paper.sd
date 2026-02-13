@@ -1,0 +1,82 @@
+schema paper {
+    document paper {
+        field paper_id type string {
+            indexing: summary | attribute
+        }
+
+        field title type string {
+            indexing: summary | index
+            index: enable-bm25
+        }
+
+        field authors type array<string> {
+            indexing: summary | attribute
+        }
+
+        field abstract type string {
+            indexing: summary | index
+            index: enable-bm25
+        }
+
+        field published_date type string {
+            indexing: summary | attribute
+        }
+
+        field url type string {
+            indexing: summary | attribute
+        }
+
+        field source type string {
+            indexing: summary | attribute
+        }
+
+        field pdf_url type string {
+            indexing: summary | attribute
+        }
+
+        field citations type int {
+            indexing: summary | attribute
+        }
+
+        field embedding type tensor<float>(x[1536]) {
+            indexing: summary | attribute | index
+            attribute {
+                distance-metric: angular
+            }
+            index {
+                hnsw {
+                    max-links-per-node: 16
+                    neighbors-to-explore-at-insert: 200
+                }
+            }
+        }
+    }
+
+    fieldset default {
+        fields: title, abstract
+    }
+
+    rank-profile default {
+        first-phase {
+            expression: bm25(title) + bm25(abstract)
+        }
+    }
+
+    rank-profile hybrid inherits default {
+        inputs {
+            query(query_embedding) tensor<float>(x[1536])
+        }
+        first-phase {
+            expression: bm25(title) + bm25(abstract) + closeness(field, embedding)
+        }
+    }
+
+    rank-profile semantic {
+        inputs {
+            query(query_embedding) tensor<float>(x[1536])
+        }
+        first-phase {
+            expression: closeness(field, embedding)
+        }
+    }
+}

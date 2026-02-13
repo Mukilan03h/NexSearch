@@ -1,0 +1,103 @@
+version: "3.9"
+
+services:
+  # =========================================================================
+  # Frontend - React UI served via Nginx
+  # =========================================================================
+  frontend:
+    build:
+      context: ../Frontend
+      dockerfile: Dockerfile
+    container_name: research-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - app
+    networks:
+      - research-net
+    restart: unless-stopped
+
+  # =========================================================================
+  # Application
+  # =========================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: research-assistant
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - app_logs:/app/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - research-net
+    restart: unless-stopped
+
+  # =========================================================================
+  # PostgreSQL - Structured Data (queries, reports, metadata)
+  # =========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: research-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-research_assistant}
+      POSTGRES_USER: ${POSTGRES_USER:-research_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-research_pass_2026}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-research_user} -d ${POSTGRES_DB:-research_assistant}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - research-net
+    restart: unless-stopped
+
+  # =========================================================================
+  # MinIO - S3-Compatible Object Storage (PDFs, reports)
+  # =========================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: research-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: [ "CMD", "mc", "ready", "local" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - research-net
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+  minio_data:
+  app_logs:
+
+
+networks:
+  research-net:
+    driver: bridge
