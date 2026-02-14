@@ -124,7 +124,7 @@ class WriterAgent(BaseAgent):
             f"**[{i+1}] {p.title or 'Untitled'}**\n"
             f"Authors: {', '.join(p.authors[:5]) if p.authors else 'Unknown'}\n"
             f"Source: {p.source} | Published: {p.published_date.strftime('%Y-%m-%d') if p.published_date else 'Unknown'}\n"
-            f"Relevance Score: {p.relevance_score:.2% if p.relevance_score else 'N/A'}\n"
+            f"Relevance Score: {f'{p.relevance_score:.2%}' if p.relevance_score else 'N/A'}\n"
             f"Abstract: {self._truncate_abstract(p.abstract or 'No abstract available')}"
             for i, p in enumerate(papers)
         ])

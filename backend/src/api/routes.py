@@ -69,9 +69,9 @@ async def execute_research_stream(request: ResearchRequest):
                                 markdown_content=report.markdown_output,
                                 minio_path=report.minio_url,
                                 papers_count=report.papers_analyzed,
-                                themes=[t.model_dump() for t in report.themes],
+                                themes=[t.model_dump(mode='json') for t in report.themes],
                                 citations=report.citations,
-                                top_papers=[p.model_dump() for p in report.top_papers],
+                                top_papers=[p.model_dump(mode='json') for p in report.top_papers],
                             )
                             session.add(report_record)
                             await session.commit()
@@ -93,10 +93,10 @@ async def execute_research_stream(request: ResearchRequest):
                         'report_id': report_id,
                         'query': request.query,
                         'papers_analyzed': report.papers_analyzed,
-                        'themes': [t.model_dump() for t in report.themes],
+                        'themes': [t.model_dump(mode='json') for t in report.themes],
                         'citations': report.citations,
                         'markdown_report': report.markdown_output,
-                        'top_papers': [p.model_dump() for p in report.top_papers],
+                        'top_papers': [p.model_dump(mode='json') for p in report.top_papers],
                         'minio_url': report.minio_url
                     }
                     yield f"data: {json.dumps(complete_data)}\n\n"
@@ -151,9 +151,9 @@ async def execute_research(request: ResearchRequest):
                     markdown_content=report.markdown_output,
                     minio_path=report.minio_url,
                     papers_count=report.papers_analyzed,
-                    themes=[t.model_dump() for t in report.themes],
+                    themes=[t.model_dump(mode='json') for t in report.themes],
                     citations=report.citations,
-                    top_papers=[p.model_dump() for p in report.top_papers],
+                    top_papers=[p.model_dump(mode='json') for p in report.top_papers],
                 )
                 session.add(report_record)
                 await session.commit()
@@ -169,10 +169,10 @@ async def execute_research(request: ResearchRequest):
             report_id=report.report_id,
             query=report.query,
             papers_analyzed=report.papers_analyzed,
-            themes=[t.model_dump() for t in report.themes],
+            themes=[t.model_dump(mode='json') for t in report.themes],
             citations=report.citations,
             markdown_report=report.markdown_output,
-            top_papers=[p.model_dump() for p in report.top_papers],
+            top_papers=[p.model_dump(mode='json') for p in report.top_papers],
             minio_url=report.minio_url,
         )
 
