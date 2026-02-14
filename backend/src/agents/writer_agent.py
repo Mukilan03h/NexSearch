@@ -121,11 +121,11 @@ class WriterAgent(BaseAgent):
     def _format_papers_for_prompt(self, papers: List[Paper]) -> str:
         """Format papers for inclusion in LLM prompts."""
         return "\n\n".join([
-            f"**[{i+1}] {p.title}**\n"
-            f"Authors: {', '.join(p.authors[:5])}\n"
-            f"Source: {p.source} | Published: {p.published_date.strftime('%Y-%m-%d')}\n"
-            f"Relevance Score: {p.relevance_score:.2%}\n"
-            f"Abstract: {self._truncate_abstract(p.abstract)}"
+            f"**[{i+1}] {p.title or 'Untitled'}**\n"
+            f"Authors: {', '.join(p.authors[:5]) if p.authors else 'Unknown'}\n"
+            f"Source: {p.source} | Published: {p.published_date.strftime('%Y-%m-%d') if p.published_date else 'Unknown'}\n"
+            f"Relevance Score: {p.relevance_score:.2% if p.relevance_score else 'N/A'}\n"
+            f"Abstract: {self._truncate_abstract(p.abstract or 'No abstract available')}"
             for i, p in enumerate(papers)
         ])
 
